@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>💼 Mentoring Finance FAQ Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
       margin: 0;
@@ -56,6 +57,7 @@
       border-radius: 8px;
       max-width: 85%;
       line-height: 1.5;
+      word-wrap: break-word;
     }
 
     .user {
@@ -76,6 +78,7 @@
       border-top: 1px solid #ddd;
       padding: 0.75rem;
       background-color: #ecfdf5;
+      gap: 0.5rem;
     }
 
     #userInput {
@@ -88,7 +91,6 @@
     }
 
     button {
-      margin-left: 0.5rem;
       padding: 0.75rem 1.2rem;
       font-size: 1rem;
       background-color: #15803d;
@@ -113,6 +115,27 @@
     .disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    @media (max-width: 600px) {
+      #chat-box {
+        height: 90vh;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      header {
+        font-size: 1.2rem;
+        padding: 0.75rem 1rem;
+      }
+
+      #input-area {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
     }
   </style>
 </head>
