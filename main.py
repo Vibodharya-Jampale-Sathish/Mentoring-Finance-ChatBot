@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
+import shelve
+from datetime import datetime, timedelta
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -14,24 +16,22 @@ from langchain.prompts import PromptTemplate
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
 
-# Load environment variables
+# Load .env
 load_dotenv()
 
-# --- ENV variables ---
+# ENV variables
 astra_db_config = {
     "ASTRA_DB_ID": os.getenv("ASTRA_DB_ID"),
     "ASTRA_DB_REGION": os.getenv("ASTRA_DB_REGION"),
     "ASTRA_DB_APPLICATION_TOKEN": os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
     "ASTRA_DB_KEYSPACE": os.getenv("ASTRA_DB_KEYSPACE"),
     "ASTRA_DB_API_ENDPOINT": os.getenv("ASTRA_DB_API_ENDPOINT"),
-
 }
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-# --- Document & Vector Store Setup ---
+# Load and process documents
 loader = TextLoader("FAQ.txt")
 documents = loader.load()
-
 splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 docs = splitter.split_documents(documents)
 
@@ -46,9 +46,8 @@ vectorstore = AstraDBVectorStore.from_documents(
     astra_db_region=astra_db_config["ASTRA_DB_REGION"],
     astra_db_application_token=astra_db_config["ASTRA_DB_APPLICATION_TOKEN"],
     astra_db_keyspace=astra_db_config["ASTRA_DB_KEYSPACE"],
-    astra_db_api_endpoint=astra_db_config["ASTRA_DB_API_ENDPOINT"],  # ✅ Use endpoint here
+    astra_db_api_endpoint=astra_db_config["ASTRA_DB_API_ENDPOINT"]
 )
-
 retriever = vectorstore.as_retriever()
 
 prompt_template = PromptTemplate(
@@ -80,16 +79,11 @@ qa_chain = RetrievalQA.from_chain_type(
     chain_type_kwargs={"prompt": prompt_template},
 )
 
-# --- FastAPI App ---
 app = FastAPI()
-
-# In-memory store: {ip_address: count}
-query_counters: Dict[str, int] = {}
 
 class Query(BaseModel):
     message: str
 
-# --- Middleware for CORS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -98,25 +92,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Limit 10 Queries per IP ---
+# --- Chat Endpoint with 10-queries/day limit ---
 @app.post("/chat")
 async def chat(query: Query, request: Request):
     client_ip = request.client.host
-    count = query_counters.get(client_ip, 0)
+    today = datetime.now().strftime("%Y-%m-%d")
 
-    if count >= 10:
-        return {"error": "Query limit reached", "detail": "You have used all 10 available queries."}
+    with shelve.open("query_limit.db", writeback=True) as db:
+        user_data = db.get(client_ip, {"date": today, "count": 0})
 
-    try:
-        result = qa_chain.invoke({"query": query.message})
-        query_counters[client_ip] = count + 1
-        return {"response": result["result"], "queries_left": 10 - query_counters[client_ip]}
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return {"error": "Internal Server Error", "detail": str(e)}
+        # Reset count if it's a new day
+        if user_data["date"] != today:
+            user_data = {"date": today, "count": 0}
 
-# --- Serve Frontend (index.html) ---
+        if user_data["count"] >= 10:
+            return {
+                "error": "Query limit reached",
+                "detail": "You’ve used all 10 queries for today. Try again tomorrow."
+            }
+
+        try:
+            result = qa_chain.invoke({"query": query.message})
+            user_data["count"] += 1
+            db[client_ip] = user_data
+            return {
+                "response": result["result"],
+                "queries_left": 10 - user_data["count"]
+            }
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return {"error": "Internal Server Error", "detail": str(e)}
+
+# --- Serve index.html ---
 @app.get("/", response_class=HTMLResponse)
 def serve_ui():
     return Path("index.html").read_text()
