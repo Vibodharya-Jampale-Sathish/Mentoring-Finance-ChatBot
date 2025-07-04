@@ -19,16 +19,16 @@ This project is a conversational AI chatbot for finance-related mentoring querie
 ## 🧩 Architecture Overview
 
 ```mermaid
-flowchart TD
-    A[User] -->|Query| B[Chat Interface (React / Langflow)]
-    B -->|POST /chat| C[FastAPI Backend]
-    C --> D[LangChain RetrievalQA]
-    D --> E[AstraDB Vector Store]
-    D --> F[OpenAI Embedding]
-    E --> D
+graph TD
+    A[User] --> B[Chat UI]
+    B --> C[FastAPI Server]
+    C --> D[LangChain QA]
+    D --> E[OpenAI LLM]
+    D --> F[AstraDB Vector Store]
     F --> D
-    D -->|Answer| C
-    C -->|Response| A
+    E --> D
+    D --> G[Response]
+    G --> B
 ```
 ---
 ## 🛠️ Project Structure
@@ -56,6 +56,7 @@ ASTRA_DB_ID=your-astra-db-id
 ASTRA_DB_APPLICATION_TOKEN=your-astra-token
 ASTRA_DB_REGION=us-east-2
 ASTRA_DB_KEYSPACE=default_keyspace
+ASTRA_DB_API_ENDPOINT=https-link
 ```
 ---
 

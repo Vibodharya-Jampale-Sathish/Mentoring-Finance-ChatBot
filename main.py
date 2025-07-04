@@ -98,19 +98,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Limit 20 Queries per IP ---
+# --- Limit 10 Queries per IP ---
 @app.post("/chat")
 async def chat(query: Query, request: Request):
     client_ip = request.client.host
     count = query_counters.get(client_ip, 0)
 
-    if count >= 20:
-        return {"error": "Query limit reached", "detail": "You have used all 20 available queries."}
+    if count >= 10:
+        return {"error": "Query limit reached", "detail": "You have used all 10 available queries."}
 
     try:
         result = qa_chain.invoke({"query": query.message})
         query_counters[client_ip] = count + 1
-        return {"response": result["result"], "queries_left": 20 - query_counters[client_ip]}
+        return {"response": result["result"], "queries_left": 10 - query_counters[client_ip]}
     except Exception as e:
         import traceback
         traceback.print_exc()
