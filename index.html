@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>💼 Mentoring Finance FAQ Bot</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4fdf7;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background-color: #166534;
+      color: white;
+      padding: 1rem 2rem;
+      font-size: 1.6rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    #chat-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+    }
+
+    #chat-box {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 720px;
+      height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #chat {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      background-color: #fdfdfd;
+      scroll-behavior: smooth;
+    }
+
+    .message {
+      margin: 0.8rem 0;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      max-width: 85%;
+      line-height: 1.5;
+    }
+
+    .user {
+      background-color: #15803d;
+      color: white;
+      align-self: flex-end;
+      text-align: right;
+    }
+
+    .bot {
+      background-color: #dcfce7;
+      color: #166534;
+      align-self: flex-start;
+    }
+
+    #input-area {
+      display: flex;
+      border-top: 1px solid #ddd;
+      padding: 0.75rem;
+      background-color: #ecfdf5;
+    }
+
+    #userInput {
+      flex: 1;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    button {
+      margin-left: 0.5rem;
+      padding: 0.75rem 1.2rem;
+      font-size: 1rem;
+      background-color: #15803d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #166534;
+    }
+
+    .typing {
+      font-style: italic;
+      color: #666;
+      margin: 0.5rem 0;
+      padding-left: 0.5rem;
+    }
+
+    .disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <header>💼 Mentoring Finance FAQ Assistant</header>
+
+  <div id="chat-container">
+    <div id="chat-box">
+      <div id="chat">
+        <div class="message bot">👋 Welcome! I can answer questions related to our mentoring finance program. Try asking about eligibility, cost, benefits, or how to get started.</div>
+      </div>
+      <div id="input-area">
+        <input id="userInput" type="text" placeholder="Type your finance question..." />
+        <button id="sendBtn" onclick="sendMessage()">Ask</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    let queryCount = 0;
+    const MAX_QUERIES = 20;
+
+    async function sendMessage() {
+      const userText = input.value.trim();
+      if (!userText || sendBtn.classList.contains('disabled')) return;
+
+      appendMessage(userText, 'user');
+      input.value = '';
+      scrollToBottom();
+
+      if (++queryCount > MAX_QUERIES) {
+        appendMessage("⚠️ You've reached the 20-question limit. Please refresh the page to reset.", 'bot');
+        disableInput();
+        return;
+      }
+
+      const typing = document.createElement("div");
+      typing.className = "typing";
+      typing.textContent = "Answering...";
+      chat.appendChild(typing);
+      scrollToBottom();
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userText }),
+        });
+
+        const data = await res.json();
+        chat.removeChild(typing);
+        appendMessage(data.response || data.error || "⚠️ Sorry, something went wrong.", 'bot');
+        scrollToBottom();
+      } catch {
+        chat.removeChild(typing);
+        appendMessage("❌ Error: Could not reach the server.", 'bot');
+        scrollToBottom();
+      }
+    }
+
+    function appendMessage(text, sender) {
+      const msg = document.createElement('div');
+      msg.className = `message ${sender}`;
+      msg.textContent = (sender === 'user' ? "You: " : "Bot: ") + text;
+      chat.appendChild(msg);
+    }
+
+    function scrollToBottom() {
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function disableInput() {
+      input.disabled = true;
+      sendBtn.disabled = true;
+      sendBtn.classList.add('disabled');
+    }
+
+    input.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
+</body>
+</html>
